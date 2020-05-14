@@ -7,7 +7,7 @@ Redis队列控制器，支持多worker并发队列，
 
 例子
 
-```
+```go
 package go_redis_queue_manager
 
 import (
