@@ -1,4 +1,4 @@
-module go_redis_queue_manager
+module github.com/bennya8/go_redis_queue_manager
 
 go 1.12
 
