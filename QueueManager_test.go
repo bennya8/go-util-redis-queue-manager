@@ -5,6 +5,7 @@ import (
 	"github.com/go-redis/redis"
 	"os"
 	"testing"
+	"time"
 )
 
 type DemoDemoQueue struct {
@@ -19,9 +20,9 @@ func (b DemoDemoQueue) Execute(payload *QueuePayload) *QueueResult {
 
 func TestNewQueueManager(t *testing.T) {
 	// 模拟系统ENV
-	os.Setenv("DB_REDIS_BUS_HOST","127.0.0.1")
-	os.Setenv("DB_REDIS_BUS_PORT","6379")
-	os.Setenv("DB_REDIS_BUS_PASSWORD","")
+	os.Setenv("DB_REDIS_BUS_HOST", "127.0.0.1")
+	os.Setenv("DB_REDIS_BUS_PORT", "6379")
+	os.Setenv("DB_REDIS_BUS_PASSWORD", "")
 
 	host := os.Getenv("DB_REDIS_BUS_HOST")
 	port := os.Getenv("DB_REDIS_BUS_PORT")
@@ -29,8 +30,8 @@ func TestNewQueueManager(t *testing.T) {
 
 	// 需要先初始化redis实例
 	rds := redis.NewClient(&redis.Options{
-		Addr:     host + ":" + port,     // remote host
-		Password: password, // password
+		Addr:     host + ":" + port, // remote host
+		Password: password,          // password
 	})
 
 	// 初始化队列控制器
@@ -51,12 +52,25 @@ func TestNewQueueManager(t *testing.T) {
 				IsFast: true,
 				Topic:  "DEMO",
 				Group:  "DEMO",
-				Body:   "do the job ",
+				Body:   "do the job on channel[DEMO::DEMO]",
 			})
+
+			qm.QueuePush(&QueuePayload{
+				IsFast: true,
+				Topic:  "DEMO",
+				Group:  "",
+				Body:   "do the job on channel[DEMO]",
+			})
+
+			time.Sleep(time.Millisecond * 300)
 		}
 	}()
 
-	qm.QueueHandler("DEMO", "DEMO", new(DemoDemoQueue))
-	//fmt.Println(qm)
+	// TOPIC + GROUP 为一个独立的队列通道
+	go qm.QueueHandler("DEMO", "DEMO", new(DemoDemoQueue))
+
+	// 当不传GROUP参数，TOPIC为独立的一个通道
+	go qm.QueueHandler("DEMO", "", new(DemoDemoQueue))
+
 	select {}
 }

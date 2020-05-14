@@ -61,13 +61,49 @@ func TestNewQueueManager(t *testing.T) {
 				IsFast: true,
 				Topic:  "DEMO",
 				Group:  "DEMO",
-				Body:   "do the job ",
+				Body:   "do the job channel[DEMO::DEMO]",
 			})
+            
+            qm.QueuePush(&QueuePayload{
+				IsFast: true,
+				Topic:  "DEMO",
+				Group:  "",
+				Body:   "do the job on channel[DEMO]",
+			})
+            
+
+
 		}
 	}()
+	
+    // TOPIC + GROUP 为一个独立的队列通道
+	go qm.QueueHandler("DEMO", "DEMO", new(DemoDemoQueue))
+    
+    // 当不传GROUP参数，TOPIC为独立的一个通道
+    go qm.QueueHandler("DEMO", "", new(DemoDemoQueue))
+    
 
-	qm.QueueHandler("DEMO", "DEMO", new(DemoDemoQueue))
 	//fmt.Println(qm)
 	select {}
 }
+```
+
+执行效果：
+
+```
+=== RUN   TestNewQueueManager
+&{7a9a8094-95b3-11ea-9183-34363bd057d6 true DEMO DEMO do the job  0 0}
+&{6f4c252a-95e6-11ea-9636-34363bd057d6 true DEMO  do the job on channel[DEMO] 0 0}
+Worker 0 FastQueues {6f4c252a-95e6-11ea-9636-34363bd057d6 true DEMO  do the job on channel[DEMO] 0 0} true ok
+Worker 3 FastQueues {7a9a8094-95b3-11ea-9183-34363bd057d6 true DEMO DEMO do the job  0 0} true ok
+&{7a9a827e-95b3-11ea-9183-34363bd057d6 true DEMO DEMO do the job  0 0}
+Worker 2 FastQueues {7a9a827e-95b3-11ea-9183-34363bd057d6 true DEMO DEMO do the job  0 0} true ok
+&{6f4c2926-95e6-11ea-9636-34363bd057d6 true DEMO  do the job on channel[DEMO] 0 0}
+Worker 1 FastQueues {6f4c2926-95e6-11ea-9636-34363bd057d6 true DEMO  do the job on channel[DEMO] 0 0} true ok
+&{7a9a8490-95b3-11ea-9183-34363bd057d6 true DEMO DEMO do the job  0 0}
+Worker 3 FastQueues {7a9a8490-95b3-11ea-9183-34363bd057d6 true DEMO DEMO do the job  0 0} true ok
+&{6f4c2d04-95e6-11ea-9636-34363bd057d6 true DEMO  do the job on channel[DEMO] 0 0}
+Worker 1 FastQueues {6f4c2d04-95e6-11ea-9636-34363bd057d6 true DEMO  do the job on channel[DEMO] 0 0} true ok
+&{6f4c30f6-95e6-11ea-9636-34363bd057d6 true DEMO  do the job on channel[DEMO] 0 0}
+Worker 2 FastQueues {6f4c30f6-95e6-11ea-9636-34363bd057d6 true DEMO  do the job on channel[DEMO] 0 0} true ok
 ```
