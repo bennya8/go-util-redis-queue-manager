@@ -5,7 +5,6 @@ import (
 	"github.com/go-redis/redis"
 	"os"
 	"testing"
-	"time"
 )
 
 type DemoDemoQueue struct {
@@ -13,7 +12,7 @@ type DemoDemoQueue struct {
 
 func (b DemoDemoQueue) Execute(payload *QueuePayload) *QueueResult {
 
-	fmt.Println(payload)
+	//fmt.Println(payload)
 
 	return NewQueueResult(true, "ok", nil)
 }
@@ -62,7 +61,7 @@ func TestNewQueueManager(t *testing.T) {
 				Body:   "do the job on channel[DEMO]",
 			})
 
-			time.Sleep(time.Millisecond * 300)
+			//time.Sleep(time.Millisecond * 300)
 		}
 	}()
 

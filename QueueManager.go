@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"runtime"
 	"sync"
-	"time"
 )
 
 type Queueable interface {
@@ -154,7 +153,7 @@ func (r *QueueManager) RoutineWorker(workerId int, i Queueable) {
 		select {
 		case fast := <-r.FastQueues:
 			rs := i.Execute(&fast)
-			fmt.Println("Worker", workerId, "FastQueues", fast, rs.State, rs.Message)
+			//fmt.Println("Worker", workerId, "FastQueues", fast, rs.State, rs.Message)
 			if !rs.State {
 				r.FallbackQueues <- fast
 			}
@@ -162,7 +161,7 @@ func (r *QueueManager) RoutineWorker(workerId int, i Queueable) {
 			if fail.Retry < r.MaxRetry {
 				fail.Retry++
 				rs := i.Execute(&fail)
-				fmt.Println("Worker", workerId, "FallbackQueues", fail, rs.State, rs.Message)
+				//fmt.Println("Worker", workerId, "FallbackQueues", fail, rs.State, rs.Message)
 				if !rs.State {
 					r.FallbackQueues <- fail
 				} else {
@@ -175,13 +174,14 @@ func (r *QueueManager) RoutineWorker(workerId int, i Queueable) {
 
 func (r *QueueManager) RoutinePopToChannel(topic string, group string) {
 	for {
-		if r.QueueLen(topic, group) > 0 {
-			payload, err := r.QueuePop(topic, group)
-			if err == nil {
-				r.FastQueues <- *payload
+		queueLen := r.QueueLen(topic, group)
+		if queueLen > 0 {
+			for i := 0; i < int(queueLen); i++ {
+				payload, err := r.QueuePop(topic, group)
+				if err == nil {
+					r.FastQueues <- *payload
+				}
 			}
 		}
-		time.Sleep(time.Millisecond * 200)
 	}
-
 }
