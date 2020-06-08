@@ -152,7 +152,13 @@ func (r *QueueManager) RoutineWorker(workerId int) {
 	for {
 		select {
 		case fast := <-r.FastQueues:
-			it := r.Handlers[fast.Topic+"::"+fast.Group]
+			var handleName string
+			if len(fast.Topic) > 0 && len(fast.Group) > 0 {
+				handleName = fast.Topic + "::" + fast.Group
+			} else if len(fast.Topic) > 0 {
+				handleName = fast.Topic
+			}
+			it := r.Handlers[handleName]
 			if it != nil {
 				rs := it.Execute(&fast)
 				fmt.Println("Worker", workerId, "FastQueues", fast, rs.State, rs.Message)
@@ -164,7 +170,14 @@ func (r *QueueManager) RoutineWorker(workerId int) {
 			if fail.Retry < r.MaxRetry {
 				fail.Retry++
 
-				it := r.Handlers[fail.Topic+"::"+fail.Group]
+				var handleName string
+				if len(fail.Topic) > 0 && len(fail.Group) > 0 {
+					handleName = fail.Topic + "::" + fail.Group
+				} else if len(fail.Topic) > 0 {
+					handleName = fail.Topic
+				}
+
+				it := r.Handlers[handleName]
 				if it != nil {
 					rs := it.Execute(&fail)
 					fmt.Println("Worker", workerId, "FallbackQueues", fail, rs.State, rs.Message)

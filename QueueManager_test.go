@@ -7,6 +7,16 @@ import (
 	"testing"
 )
 
+type StandaloneQueue struct {
+}
+
+func (b StandaloneQueue) Execute(payload *QueuePayload) *QueueResult {
+
+	//fmt.Println(payload)
+
+	return NewQueueResult(true, "StandaloneQueue.ok", nil)
+}
+
 type DemoDemoQueue struct {
 }
 
@@ -52,8 +62,9 @@ func TestNewQueueManager(t *testing.T) {
 
 	// 注册队列任务处理器，TOPIC::GROUP 方式命名，和入栈队列payload一致
 	qm.Handlers = map[string]Queueable{
-		"DEMO::DEMO":   DemoDemoQueue{},
-		"DEMO2::DEMO2": DemoDemo2Queue{},
+		"DEMO::DEMO":  DemoDemoQueue{},
+		"DEMO::DEMO2": DemoDemo2Queue{},
+		"STANDALONE":  StandaloneQueue{},
 	}
 	// 注册队列执行发生错误时，recovery的回调
 	qm.RegisterOnInterrupt(func(stack string) {
@@ -72,9 +83,15 @@ func TestNewQueueManager(t *testing.T) {
 
 			qm.QueuePush(&QueuePayload{
 				IsFast: true,
-				Topic:  "DEMO2",
+				Topic:  "DEMO",
 				Group:  "DEMO2",
 				Body:   "do the job on channel[DEMO]",
+			})
+			qm.QueuePush(&QueuePayload{
+				IsFast: true,
+				Topic:  "STANDALONE",
+				Group:  "",
+				Body:   "do the job on STANDALONE",
 			})
 
 			//time.Sleep(time.Millisecond * 300)
@@ -83,7 +100,8 @@ func TestNewQueueManager(t *testing.T) {
 
 	// TOPIC + GROUP 为一个独立的队列通道
 	go qm.QueueHandler("DEMO", "DEMO")
-	go qm.QueueHandler("DEMO2", "DEMO2")
+	go qm.QueueHandler("DEMO", "DEMO2")
+	go qm.QueueHandler("STANDALONE", "")
 
 	// 执行队列监听
 	go qm.QueueRunner()
