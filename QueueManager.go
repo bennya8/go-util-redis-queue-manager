@@ -44,6 +44,7 @@ type QueueManager struct {
 	FallbackQueues chan QueuePayload
 	WorkerNum      int
 	OnRecovery     QueueRecoveryListener
+	Handlers       map[string]Queueable
 }
 
 func NewQueueManager() *QueueManager {
@@ -119,7 +120,17 @@ func (r *QueueManager) QueuePush(payload *QueuePayload) error {
 	return nil
 }
 
-func (r *QueueManager) QueueHandler(topic string, group string, i Queueable) {
+func (r *QueueManager) QueueHandler(topic string, group string) {
+	go r.RoutinePopToChannel(topic, group)
+}
+
+func (r *QueueManager) QueueRunner() {
+	for n := 0; n < r.WorkerNum; n++ {
+		go r.RoutineWorker(n)
+	}
+}
+
+func (r *QueueManager) RoutineWorker(workerId int) {
 	// something wrong enqueue again.
 	defer func() {
 		if err := recover(); err != nil {
@@ -136,36 +147,32 @@ func (r *QueueManager) QueueHandler(topic string, group string, i Queueable) {
 			logMessage := fmt.Sprintf("Trace: %s\n", err)
 			logMessage += fmt.Sprintf("\n%s", stacktrace)
 			fmt.Println(logMessage)
-			if r.OnRecovery != nil {
-				r.OnRecovery(stacktrace)
-			}
 		}
 	}()
-
-	go r.RoutinePopToChannel(topic, group)
-	for n := 0; n < r.WorkerNum; n++ {
-		go r.RoutineWorker(n, i)
-	}
-}
-
-func (r *QueueManager) RoutineWorker(workerId int, i Queueable) {
 	for {
 		select {
 		case fast := <-r.FastQueues:
-			rs := i.Execute(&fast)
-			//fmt.Println("Worker", workerId, "FastQueues", fast, rs.State, rs.Message)
-			if !rs.State {
-				r.FallbackQueues <- fast
+			it := r.Handlers[fast.Topic+"::"+fast.Group]
+			if it != nil {
+				rs := it.Execute(&fast)
+				fmt.Println("Worker", workerId, "FastQueues", fast, rs.State, rs.Message)
+				if !rs.State {
+					r.FallbackQueues <- fast
+				}
 			}
 		case fail := <-r.FallbackQueues:
 			if fail.Retry < r.MaxRetry {
 				fail.Retry++
-				rs := i.Execute(&fail)
-				//fmt.Println("Worker", workerId, "FallbackQueues", fail, rs.State, rs.Message)
-				if !rs.State {
-					r.FallbackQueues <- fail
-				} else {
-					panic(rs.Message)
+
+				it := r.Handlers[fail.Topic+"::"+fail.Group]
+				if it != nil {
+					rs := it.Execute(&fail)
+					fmt.Println("Worker", workerId, "FallbackQueues", fail, rs.State, rs.Message)
+					if !rs.State {
+						r.FallbackQueues <- fail
+					} else {
+						panic(rs.Message)
+					}
 				}
 			}
 		}

@@ -14,7 +14,17 @@ func (b DemoDemoQueue) Execute(payload *QueuePayload) *QueueResult {
 
 	//fmt.Println(payload)
 
-	return NewQueueResult(true, "ok", nil)
+	return NewQueueResult(true, "DemoDemoQueue.ok", nil)
+}
+
+type DemoDemo2Queue struct {
+}
+
+func (b DemoDemo2Queue) Execute(payload *QueuePayload) *QueueResult {
+
+	//fmt.Println(payload)
+
+	return NewQueueResult(true, "DemoDemoQueue2.ok ", nil)
 }
 
 func TestNewQueueManager(t *testing.T) {
@@ -39,6 +49,12 @@ func TestNewQueueManager(t *testing.T) {
 	qm.UseRedis(rds)
 	// 队列的worker数
 	qm.WorkerNum = 4
+
+	// 注册队列任务处理器，TOPIC::GROUP 方式命名，和入栈队列payload一致
+	qm.Handlers = map[string]Queueable{
+		"DEMO::DEMO":   DemoDemoQueue{},
+		"DEMO2::DEMO2": DemoDemo2Queue{},
+	}
 	// 注册队列执行发生错误时，recovery的回调
 	qm.RegisterOnInterrupt(func(stack string) {
 		fmt.Println(stack)
@@ -56,8 +72,8 @@ func TestNewQueueManager(t *testing.T) {
 
 			qm.QueuePush(&QueuePayload{
 				IsFast: true,
-				Topic:  "DEMO",
-				Group:  "",
+				Topic:  "DEMO2",
+				Group:  "DEMO2",
 				Body:   "do the job on channel[DEMO]",
 			})
 
@@ -66,10 +82,10 @@ func TestNewQueueManager(t *testing.T) {
 	}()
 
 	// TOPIC + GROUP 为一个独立的队列通道
-	go qm.QueueHandler("DEMO", "DEMO", new(DemoDemoQueue))
+	go qm.QueueHandler("DEMO", "DEMO")
+	go qm.QueueHandler("DEMO2", "DEMO2")
 
-	// 当不传GROUP参数，TOPIC为独立的一个通道
-	go qm.QueueHandler("DEMO", "", new(DemoDemoQueue))
-
+	// 执行队列监听
+	go qm.QueueRunner()
 	select {}
 }
